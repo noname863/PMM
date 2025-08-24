@@ -1,11 +1,23 @@
+
+# unsorted packages
+
 ImageMagick-devel
 ModemManager
 NetworkManager
 NetworkManager-adsl
+
+# unsorted packages
+
 NetworkManager-bluetooth
 NetworkManager-l2tp-gnome
 NetworkManager-libreswan-gnome
+
+# unsorted packages
+
 NetworkManager-openconnect-gnome
+              
+# unsorted packages
+		
 NetworkManager-openvpn-gnome
 NetworkManager-ppp
 NetworkManager-pptp-gnome
