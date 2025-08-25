@@ -1,5 +1,4 @@
 const std = @import("std");
-const math = @import("math.zig");
 
 pub fn SimpleArena(comptime batch_size: usize) type
 {
@@ -70,7 +69,7 @@ pub fn SimpleArena(comptime batch_size: usize) type
         fn allocateWithNewNode(self: *Self, len: usize, alignment: std.mem.Alignment) ?[*]u8
         {
             const align_bytes = alignment.toByteUnits();
-            const alloc_size: usize = math.max(batch_size, len + @sizeOf(ArenaNode) + align_bytes);
+            const alloc_size: usize = @max(batch_size, len + @sizeOf(ArenaNode) + align_bytes);
             const ptr = self.allocateNode(alloc_size) orelse return null;
 
             const aligned_ptr: [*]u8 = ArenaPrivate.alignPtr(ptr + @sizeOf(ArenaNode), alignment);

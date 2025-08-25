@@ -25,7 +25,6 @@ but it doesnt't use nix as underlying package manager. As a result
 ## Commands
 *  --check: checks how system is different from the recipe.
 *  --check-packages: checks which packages are not installed, and which packages are excessive
-*  --check-files: checks which files are excessive.
 *  --apply: applies recipe
 *  --apply-packages: applies packages recipe
 *  --apply-config: applies configuration

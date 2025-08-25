@@ -285,12 +285,8 @@ kernel-tools-libs-devel
 kernel-uki-virt
 kernel-uki-virt-addons
 kexec-tools
-kmod-VirtualBox-6.14.6-300.fc42.x86_64
-kmod-VirtualBox-6.15.5-200.fc42.x86_64
-kmod-VirtualBox-6.15.9-201.fc42.x86_64
-kmod-v4l2loopback-6.14.6-300.fc42.x86_64
-kmod-v4l2loopback-6.15.5-200.fc42.x86_64
-kmod-v4l2loopback-6.15.9-201.fc42.x86_64
+kmod-VirtualBox
+kmod-v4l2loopback
 langpacks-en
 lcms2-devel
 less
@@ -605,6 +601,7 @@ wev
 wget2-wget
 which
 whois
+wine-alsa
 wine-cms
 wine-common
 wine-desktop
@@ -621,6 +618,7 @@ wine-tahoma-fonts-system
 wine-times-new-roman-fonts
 wine-times-new-roman-fonts-system
 wine-twain
+wine-pulseaudio
 wine-wingdings-fonts-system
 wireguard-tools
 wireplumber
@@ -654,5 +652,4 @@ zip
 zix
 zram-generator-defaults
 zstd
-chromium
 
