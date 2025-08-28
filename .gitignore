@@ -1,4 +1,5 @@
 .vscode
+.project.gf
 /target
 /.zig-cache
 /zig-out

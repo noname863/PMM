@@ -31,7 +31,6 @@ but it doesnt't use nix as underlying package manager. As a result
 *  --apply-home: applies only home configuration. Can be run without sudo
 *  --init: creates initial configuration.
     All (directly) installed packages are written to the list of "unsorted" packages.
-    All files which are not related to the packages are added to the list of ignored files
 *  --install: adds package(s) to the list of unsorted packages. Installs package(s) to the system
 *  --uninstall: remove package(s) from all of the package lists. Uninstalls package(s) from the system
 
