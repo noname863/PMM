@@ -1,4 +1,6 @@
 
+# chromium
+
 # unsorted packages
 
 ImageMagick-devel
@@ -15,7 +17,7 @@ NetworkManager-libreswan-gnome
 # unsorted packages
 
 NetworkManager-openconnect-gnome
-              
+             
 # unsorted packages
 		
 NetworkManager-openvpn-gnome

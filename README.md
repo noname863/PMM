@@ -23,14 +23,14 @@ but it doesnt't use nix as underlying package manager. As a result
   if you want to install something into the system fast.
 
 ## Commands
-*  --check: checks how system is different from the recipe.
-*  --check-packages: checks which packages are not installed, and which packages are excessive
+*  --preview-apply: checks how system is different from the recipe.
+*  --preview-apply-packages: checks which packages are not installed, and which packages are excessive
+*  --preview-apply-config: check what will be added if config would be applied
+*  --preview-apply-home: check what will happen if home config would be applied
 *  --apply: applies recipe
 *  --apply-packages: applies packages recipe
 *  --apply-config: applies configuration
 *  --apply-home: applies only home configuration. Can be run without sudo
-*  --init: creates initial configuration.
-    All (directly) installed packages are written to the list of "unsorted" packages.
 *  --install: adds package(s) to the list of unsorted packages. Installs package(s) to the system
 *  --uninstall: remove package(s) from all of the package lists. Uninstalls package(s) from the system
 

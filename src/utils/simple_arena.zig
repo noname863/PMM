@@ -221,3 +221,5 @@ pub fn SimpleArena(comptime batch_size: usize) type
     };
 }
 
+pub var instance = SimpleArena(1048576).init();
+
