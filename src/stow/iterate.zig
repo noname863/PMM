@@ -7,7 +7,7 @@ const DirKind = std.fs.Dir.Entry.Kind;
 
 const lstat = @import("../utils/lstat.zig").lstat;
 
-fn iterateSpecificConfig(context: anytype, package_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
+pub fn iterateSpecificConfig(context: anytype, package_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
     same_name_func: SameFileFunc(@TypeOf(context)),
     not_exists_func: FileNotExistsFunc(@TypeOf(context))) !void
 {

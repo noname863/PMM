@@ -37,7 +37,7 @@ const commands = .{
     }
 };
 
-pub fn runStowCommand(command_type: CommandType, package_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
+pub fn runStowCommandForAll(command_type: CommandType, config_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
     stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) !void
 {
     inline for (commands) |command|
@@ -46,7 +46,22 @@ pub fn runStowCommand(command_type: CommandType, package_dir: std.fs.Dir, deploy
         {
             const context = command.@"1".createContext(stdout, stderr);
 
-            try iterate.iterateConfig(context, package_dir, deploy_dir, command.@"1".same, command.@"1".notExists);
+            try iterate.iterateConfig(context, config_dir, deploy_dir, command.@"1".same, command.@"1".notExists);
+        }
+    }
+}
+
+pub fn runStowCommandSpecific(command_type: CommandType, package_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
+    stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) !void
+{
+    
+    inline for (commands) |command|
+    {
+        if (command_type == command.@"0")
+        {
+            const context = command.@"1".createContext(stdout, stderr);
+
+            try iterate.iterateSpecificConfig(context, package_dir, deploy_dir, command.@"1".same, command.@"1".notExists);
         }
     }
 }
