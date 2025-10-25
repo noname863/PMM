@@ -1,8 +1,8 @@
 const std = @import("std");
-const BufferedFileWriter = @import("../utils/buffered_writer.zig").BufferedFileWriter;
+
 const arena = @import("../utils/simple_arena.zig");
 
-pub fn checkProcessFailure(stderr: *const BufferedFileWriter,
+pub fn checkProcessFailure(stderr: *std.Io.Writer,
     op_name: []const u8, proc_result: std.process.Child.Term) !bool
 {
     switch (proc_result)
@@ -33,7 +33,7 @@ pub fn checkProcessFailure(stderr: *const BufferedFileWriter,
     }
 }
 
-pub fn runAttachedProcess(stderr: *const BufferedFileWriter, argv: []const []const u8, op_name: []const u8) !bool
+pub fn runAttachedProcess(stderr: *std.Io.Writer, argv: []const []const u8, op_name: []const u8) !bool
 {
     var child_process = std.process.Child.init(argv, arena.instance.allocator());
     child_process.stdin_behavior = std.process.Child.StdIo.Inherit;

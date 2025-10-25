@@ -1,4 +1,5 @@
 const std = @import("std");
+const arena = @import("../utils/simple_arena.zig");
 
 pub fn parsePackages(packages: *std.ArrayList([]const u8), string_with_packages: []const u8) !void
 {
@@ -14,7 +15,7 @@ pub fn parsePackages(packages: *std.ArrayList([]const u8), string_with_packages:
 
         if (std.mem.indexOfNone(u8, string_with_packages[start_index..end_index], &std.ascii.whitespace)) |index_of_first_letter|
         {
-            try packages.append(string_with_packages[(start_index+index_of_first_letter)..end_index]);
+            try packages.append(arena.allocator, string_with_packages[(start_index+index_of_first_letter)..end_index]);
         }
     }
 }

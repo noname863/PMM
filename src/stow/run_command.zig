@@ -1,7 +1,6 @@
 const std = @import("std");
 
 const DirKind = std.fs.Dir.Entry.Kind;
-const BufferedFileWriter = @import("../utils/buffered_writer.zig").BufferedFileWriter;
 
 const iterate = @import("iterate.zig");
 
@@ -38,7 +37,7 @@ const commands = .{
 };
 
 pub fn runStowCommandForAll(command_type: CommandType, config_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
-    stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) !void
+    stdout: *std.Io.Writer, stderr: *std.Io.Writer) !void
 {
     inline for (commands) |command|
     {
@@ -52,7 +51,7 @@ pub fn runStowCommandForAll(command_type: CommandType, config_dir: std.fs.Dir, d
 }
 
 pub fn runStowCommandSpecific(command_type: CommandType, package_dir: std.fs.Dir, deploy_dir: std.fs.Dir,
-    stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) !void
+    stdout: *std.Io.Writer, stderr: *std.Io.Writer) !void
 {
     
     inline for (commands) |command|

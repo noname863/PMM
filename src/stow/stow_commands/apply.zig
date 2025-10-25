@@ -1,11 +1,9 @@
 const std = @import("std");
 const DirKind = std.fs.Dir.Entry.Kind;
 
-const BufferedFileWriter = @import("../../utils/buffered_writer.zig").BufferedFileWriter;
-
 pub const Context = struct
 {
-    stderr: *const BufferedFileWriter,
+    stderr: *std.Io.Writer,
     overwrite: bool
 };
 
@@ -45,7 +43,7 @@ pub fn notExists(_: Context, config_dir: std.fs.Dir, deploy_dir: std.fs.Dir, fil
     try stowMakeLink(config_dir, deploy_dir, file);
 }
 
-pub fn createContext(_: *const BufferedFileWriter, stderr: *const BufferedFileWriter) Context
+pub fn createContext(_: *std.Io.Writer, stderr: *std.Io.Writer) Context
 {
     return .{
         .stderr = stderr,

@@ -1,12 +1,12 @@
 const apply = @import("apply.zig");
-const BufferedFileWriter = @import("../../utils/buffered_writer.zig").BufferedFileWriter;
+const std = @import("std");
 
 pub const Context = apply.Context;
 
 pub const same = apply.same;
 pub const notExists = apply.notExists;
 
-pub fn createContext(_: *const BufferedFileWriter, stderr: *const BufferedFileWriter) Context
+pub fn createContext(_: *std.Io.Writer, stderr: *std.Io.Writer) Context
 {
     return .{
         .stderr = stderr,

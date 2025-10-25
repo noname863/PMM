@@ -1,12 +1,12 @@
 const std = @import("std");
 const append = @import("../../utils/append.zig").append;
 
-const BufferedFileWriter = @import("../../utils/buffered_writer.zig").BufferedFileWriter;
+
 
 pub const Context = struct
 {
-    stdout: *const BufferedFileWriter,
-    stderr: *const BufferedFileWriter,
+    stdout: *std.Io.Writer,
+    stderr: *std.Io.Writer,
 };
 
 pub fn same(context: Context, _: std.fs.Dir, deploy_dir: std.fs.Dir, file: std.fs.Dir.Entry, _: std.fs.Dir.Stat) !void
@@ -26,7 +26,7 @@ pub fn notExists(context: Context, _: std.fs.Dir, deploy_dir: std.fs.Dir, file: 
     try context.stdout.print("Deploy: {s}\n", .{path_slice});
 }
 
-pub fn createContext(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) Context
+pub fn createContext(stdout: *std.Io.Writer, stderr: *std.Io.Writer) Context
 {
     return .{
         .stdout = stdout,

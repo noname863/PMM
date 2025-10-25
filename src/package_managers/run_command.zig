@@ -1,7 +1,6 @@
 const std = @import("std");
 const arena = @import("../utils/simple_arena.zig");
 
-const BufferedFileWriter = @import("../utils/buffered_writer.zig").BufferedFileWriter;
 const stringCompare = @import("../utils/string_compare.zig").stringCompare;
 
 const pm = @import("package_managers.zig");
@@ -17,8 +16,8 @@ fn packageDiff(installed: []const []const u8, in_recipe: []const []const u8) !Pa
 {
     // TODO: two array lists work poorly with one arena.instance.
     // Ideally, you would like to have separate arenas for them
-    var to_add = std.ArrayList([]const u8).init(arena.instance.allocator());
-    var to_remove = std.ArrayList([]const u8).init(arena.instance.allocator());
+    var to_add = std.ArrayList([]const u8){};
+    var to_remove = std.ArrayList([]const u8){};
 
     var installed_index: usize = 0;
     var recipe_index: usize = 0;
@@ -29,7 +28,7 @@ fn packageDiff(installed: []const []const u8, in_recipe: []const []const u8) !Pa
         {
             while (recipe_index < in_recipe.len)
             {
-                try to_add.append(in_recipe[recipe_index]);
+                try to_add.append(arena.allocator, in_recipe[recipe_index]);
                 recipe_index += 1;
             }
             break;
@@ -38,15 +37,16 @@ fn packageDiff(installed: []const []const u8, in_recipe: []const []const u8) !Pa
         {
             while (installed_index < installed.len)
             {
-                try to_remove.append(installed[installed_index]);
+                try to_remove.append(arena.allocator, installed[installed_index]);
                 installed_index += 1;
             }
+            break;
         }
 
         switch (std.mem.order(u8, installed[installed_index], in_recipe[recipe_index]))
         {
             .lt => {
-                try to_remove.append(installed[installed_index]);
+                try to_remove.append(arena.allocator, installed[installed_index]);
                 installed_index += 1;
             },
             .eq => {
@@ -54,7 +54,7 @@ fn packageDiff(installed: []const []const u8, in_recipe: []const []const u8) !Pa
                 recipe_index += 1;
             },
             .gt => {
-                try to_add.append(in_recipe[recipe_index]);
+                try to_add.append(arena.allocator, in_recipe[recipe_index]);
                 recipe_index += 1;
             }
         }
@@ -66,10 +66,10 @@ fn packageDiff(installed: []const []const u8, in_recipe: []const []const u8) !Pa
 
 fn gatherPackages(pmfolder: std.fs.Dir) ![][]const u8
 {
-    const allocator = arena.instance.allocator();
+    const allocator = arena.allocator;
     var dir_iter = pmfolder.iterateAssumeFirstIteration();
 
-    var packages = std.ArrayList([]const u8).init(allocator);
+    var packages = std.ArrayList([]const u8){};
 
     while (try dir_iter.next()) |file_entry|
     {
@@ -110,9 +110,10 @@ const PMState = struct
     requested_packages: []const []const u8,
 };
 
-fn getPMStates(stderr: *const BufferedFileWriter, recipe_dir: std.fs.Dir) !?[]PMState
+fn getPMStates(stderr: *std.Io.Writer, recipe_dir: std.fs.Dir) !?[]PMState
 {
-    var pmstates = std.ArrayList(PMState).init(arena.instance.allocator());
+    const allocator = arena.instance.allocator();
+    var pmstates = std.ArrayList(PMState){};
     
     var dir_iter = recipe_dir.iterateAssumeFirstIteration();
 
@@ -130,12 +131,12 @@ fn getPMStates(stderr: *const BufferedFileWriter, recipe_dir: std.fs.Dir) !?[]PM
 
             if (try manager.user_installed_cmd(stderr)) |installed|
             {
-                try pmstates.append(.{
+                try pmstates.append(allocator, .{
                     .package_manager = manager,
                     .installed_packages = installed,
                     .requested_packages = requested_packages
                 });
-            }
+            } 
             else
             {
                 return null;
@@ -146,7 +147,7 @@ fn getPMStates(stderr: *const BufferedFileWriter, recipe_dir: std.fs.Dir) !?[]PM
     return pmstates.items;
 }
 
-fn applyPackages(_: *const BufferedFileWriter, stderr: *const BufferedFileWriter, recipe_dir: std.fs.Dir) !void
+fn applyPackages(_: *std.Io.Writer, stderr: *std.Io.Writer, recipe_dir: std.fs.Dir) !void
 {
     const pmstates = try getPMStates(stderr, recipe_dir);
 
@@ -166,7 +167,7 @@ fn applyPackages(_: *const BufferedFileWriter, stderr: *const BufferedFileWriter
     }
 }
 
-fn previewPackages(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, packages_dir: std.fs.Dir) !void
+fn previewPackages(stdout: *std.Io.Writer, stderr: *std.Io.Writer, packages_dir: std.fs.Dir) !void
 {
     const pmstates = try getPMStates(stderr, packages_dir);
     for (pmstates orelse return) |pmstate|
@@ -195,7 +196,7 @@ pub const PMOperationType = enum {
 
 const Operation = struct {
     op_type: PMOperationType,
-    function: *const fn (*const BufferedFileWriter, *const BufferedFileWriter, std.fs.Dir) anyerror!void
+    function: *const fn (*std.Io.Writer, *std.Io.Writer, std.fs.Dir) anyerror!void
 };
 
 pub const operations = [_]Operation{
@@ -210,7 +211,7 @@ pub const operations = [_]Operation{
 };
 
 pub fn runPackageManagerOp(op_type: PMOperationType,
-    stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, recipe_dir: std.fs.Dir) !void
+    stdout: *std.Io.Writer, stderr: *std.Io.Writer, recipe_dir: std.fs.Dir) !void
 {
     inline for (operations) |operation|
     {

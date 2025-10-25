@@ -2,9 +2,13 @@ const std = @import("std");
 
 pub fn SimpleArena(comptime batch_size: usize) type
 {
-    const ArenaList = std.SinglyLinkedList(usize);
-    const ArenaNode = ArenaList.Node;
-
+    const ArenaList = std.SinglyLinkedList;
+    const ArenaNode = struct
+    {
+        node: ArenaList.Node,
+        data: usize
+    };
+    
     const ArenaPrivate = struct
     {
         fn alignPtr(ptr: [*]u8, alignment: std.mem.Alignment) [*]u8
@@ -24,11 +28,12 @@ pub fn SimpleArena(comptime batch_size: usize) type
     
     comptime
     {
-        if (batch_size < @sizeOf(std.SinglyLinkedList(void).Node))
+        if (batch_size < @sizeOf(std.SinglyLinkedList.Node))
         {
             @compileError("Error: batch_size for arena is smaller than size of node to store the batch!");
         }
     }
+
     return struct {
         const Self = @This();
     
@@ -47,11 +52,11 @@ pub fn SimpleArena(comptime batch_size: usize) type
 
         pub fn deinit(self: Self) void
         {
-            var opt_node: ?*ArenaNode = self.buffer_list.first;
+            var opt_node: ?*ArenaList.Node = self.buffer_list.first;
             while (opt_node) |node|
             {
                 opt_node = node.next;
-                ArenaPrivate.deinitNode(node);
+                ArenaPrivate.deinitNode(@fieldParentPtr("node", node));
             }
         }
 
@@ -61,7 +66,7 @@ pub fn SimpleArena(comptime batch_size: usize) type
                 .fromByteUnits(@alignOf(ArenaNode)), 0) orelse return null;
             const node: *ArenaNode = @ptrCast(@alignCast(ptr));
             node.data = alloc_size;
-            self.buffer_list.prepend(node);
+            self.buffer_list.prepend(&node.node);
 
             return ptr;
         }
@@ -84,9 +89,10 @@ pub fn SimpleArena(comptime batch_size: usize) type
             if (self.buffer_list.first) |node|
             {
                 // TODO: for certain there is an error somewhere
-                const node_ptr: [*]u8 = @ptrCast(node);
+                const arena_node: *ArenaNode = @fieldParentPtr("node", node);
+                const node_ptr: [*]u8 = @ptrCast(arena_node);
                 const aligned_ptr: [*]u8 = ArenaPrivate.alignPtr(node_ptr + self.current_size, alignment);
-                const free_mem: usize = node.data - (aligned_ptr - node_ptr);
+                const free_mem: usize = arena_node.data - (aligned_ptr - node_ptr);
                 if (len < free_mem)
                 {
                     self.current_size = (aligned_ptr - node_ptr) + len;
@@ -115,7 +121,8 @@ pub fn SimpleArena(comptime batch_size: usize) type
         {
             if (self.buffer_list.first) |node|
             {
-                const nodePtr: [*]u8 = @ptrCast(node);
+                const arena_node: *ArenaNode = @fieldParentPtr("node", node);
+                const nodePtr: [*]u8 = @ptrCast(arena_node);
                 if ((mem.ptr - nodePtr) != self.current_size - mem.len)
                 {
                     return ResizeState.WrongAllocation;
@@ -125,7 +132,7 @@ pub fn SimpleArena(comptime batch_size: usize) type
                     self.current_size -= (mem.len - new_len);
                     return ResizeState.Success;
                 }
-                const free_mem: usize = node.data - (self.current_size);
+                const free_mem: usize = arena_node.data - (self.current_size);
                 if (new_len - mem.len < free_mem)
                 {
                     self.current_size += new_len - mem.len;
@@ -164,7 +171,8 @@ pub fn SimpleArena(comptime batch_size: usize) type
                 .Success => { return mem.ptr; },
                 .Failed => {
                     const node = self.buffer_list.first.?;
-                    const node_ptr: [*]u8 = @ptrCast(node);
+                    const arena_node: *ArenaNode = @fieldParentPtr("node", node);
+                    const node_ptr: [*]u8 = @ptrCast(arena_node);
                     const aligned_ptr: [*]u8 = ArenaPrivate.alignPtr(node_ptr + @sizeOf(ArenaNode), alignment);
 
                     // so, the only thing we can do in remap, is check that last allocation mmapped new node,
@@ -185,7 +193,7 @@ pub fn SimpleArena(comptime batch_size: usize) type
                         const new_aligned_ptr: [*]u8 = ArenaPrivate.alignPtr(new_ptr + @sizeOf(ArenaNode), alignment);
                         std.mem.copyForwards(u8, new_aligned_ptr[0..mem.len], mem);
 
-                        std.heap.page_allocator.rawFree(node_ptr[0..node.data], .fromByteUnits(@alignOf(ArenaNode)), 0);
+                        std.heap.page_allocator.rawFree(node_ptr[0..arena_node.data], .fromByteUnits(@alignOf(ArenaNode)), 0);
 
                         self.buffer_list.prepend(@ptrCast(@alignCast(new_ptr)));
 
@@ -222,4 +230,5 @@ pub fn SimpleArena(comptime batch_size: usize) type
 }
 
 pub var instance = SimpleArena(1048576).init();
+pub const allocator = instance.allocator();
 

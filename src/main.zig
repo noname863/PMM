@@ -2,12 +2,10 @@ const std = @import("std");
 const arena = @import("utils/simple_arena.zig");
 const SimpleArena = arena.SimpleArena;
 
-const BufferedFileWriter = @import("utils/buffered_writer.zig").BufferedFileWriter;
-
 const stow_cmd = @import("stow/run_command.zig");
 const package_cmd = @import("package_managers/run_command.zig");
 
-fn getHomeDir(stderr: *const BufferedFileWriter) !?std.fs.Dir
+fn getHomeDir(stderr: *std.Io.Writer) !?std.fs.Dir
 {
     if (std.posix.getenv("HOME")) |home|
     {
@@ -86,7 +84,7 @@ const operations = .{
     .{"--help", .{HelpOpDesc{}}, "Prints this message"}
 };
 
-fn getPackagesDir(stderr: *const BufferedFileWriter) !?std.fs.Dir
+fn getPackagesDir(stderr: *std.Io.Writer) !?std.fs.Dir
 {
     return std.fs.openDirAbsolute("/etc/pmm/packages", .{.iterate = true}) catch |err| {
         switch (err) {
@@ -99,7 +97,7 @@ fn getPackagesDir(stderr: *const BufferedFileWriter) !?std.fs.Dir
     };
 }
 
-fn getRootDotfiles(stderr: *const BufferedFileWriter) !?std.fs.Dir
+fn getRootDotfiles(stderr: *std.Io.Writer) !?std.fs.Dir
 {
     return std.fs.openDirAbsolute("/etc/pmm/config", .{.iterate = true}) catch |err| {
         switch (err) {
@@ -112,7 +110,7 @@ fn getRootDotfiles(stderr: *const BufferedFileWriter) !?std.fs.Dir
     };
 }
 
-fn getHomeDotfiles(stderr: *const BufferedFileWriter, home_dir: std.fs.Dir) !?std.fs.Dir
+fn getHomeDotfiles(stderr: *std.Io.Writer, home_dir: std.fs.Dir) !?std.fs.Dir
 {
     const config_data = if (std.posix.getenv("XDG_CONFIG_HOME")) |config_dir_path|
         .{std.fs.openDirAbsolute(config_dir_path, .{}) catch |err| {
@@ -147,7 +145,7 @@ fn getHomeDotfiles(stderr: *const BufferedFileWriter, home_dir: std.fs.Dir) !?st
     };
 }
 
-fn printHelp(stdout: *const BufferedFileWriter) !void
+fn printHelp(stdout: *std.Io.Writer) !void
 {
     try stdout.print("Usage: pmm <Operation> [Package name]\n\n" ++
         "Configuration folders:\n" ++
@@ -187,7 +185,7 @@ fn getWrongOperandReason(comptime operation: type) ?WrongOperandReason
 }
 
 fn doOperations(op_flag: [*:0]const u8, opt_operand: ?[*:0]const u8,
-    stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter) !void
+    stdout: *std.io.Writer, stderr: *std.io.Writer) !void
 {
     inline for (operations) |operation|
     {
@@ -268,7 +266,7 @@ fn doOperations(op_flag: [*:0]const u8, opt_operand: ?[*:0]const u8,
     try stdout.print("\nUnknown operation {s}\n", .{op_flag});
 }
 
-fn applyHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, packages_dir: std.fs.Dir) !void
+fn applyHome(stdout: *const std.Io.Writer, stderr: *const std.Io.Writer, packages_dir: std.fs.Dir) !void
 {
     if (try getHomeDir(stderr)) |deploy_dir|
     {
@@ -278,7 +276,7 @@ fn applyHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWrite
     // try iterateConfigFromHome(StowContext{.stderr = &stderr, .overwrite = overwrite}, packages_dir, stowSameFunc, stowNotExists);
 }
 
-fn cleanupHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, packages_dir: std.fs.Dir) !void
+fn cleanupHome(stdout: *const std.Io.Writer, stderr: *const std.Io.Writer, packages_dir: std.fs.Dir) !void
 {
     if (try getHomeDir(stderr)) |deploy_dir|
     {
@@ -287,7 +285,7 @@ fn cleanupHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWri
     }
 }
 
-fn previewApplyHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, packages_dir: std.fs.Dir) !void
+fn previewApplyHome(stdout: *const std.Io.Writer, stderr: *const std.Io.Writer, packages_dir: std.fs.Dir) !void
 {
     if (try getHomeDir(stderr)) |deploy_dir|
     {
@@ -296,7 +294,7 @@ fn previewApplyHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFi
     }
 }
 
-fn previewCleanupHome(stdout: *const BufferedFileWriter, stderr: *const BufferedFileWriter, packages_dir: std.fs.Dir) !void
+fn previewCleanupHome(stdout: *const std.Io.Writer, stderr: *const std.Io.Writer, packages_dir: std.fs.Dir) !void
 {
     if (try getHomeDir(stderr)) |deploy_dir|
     {
@@ -305,7 +303,7 @@ fn previewCleanupHome(stdout: *const BufferedFileWriter, stderr: *const Buffered
     }
 }
 
-fn processAccessDenied(stdout: BufferedFileWriter, err: anyerror) !void
+fn processAccessDenied(stdout: *std.Io.Writer, err: anyerror) !void
 {
     if (err == error.AccessDenied)
     {
@@ -318,33 +316,35 @@ fn processAccessDenied(stdout: BufferedFileWriter, err: anyerror) !void
     }
 }
 
+var stdout_buf: [4096]u8 = undefined;
+var stderr_buf: [4096]u8 = undefined;
+
 pub fn main() !void {
     // TODO: add a lot of error handling. For now if something goes wrong
     // I will recieve debug messages, and stacktrace, but need to consider
     // something nicer for stuff which will face user
     defer arena.instance.deinit();
 
-    var stdout_buf_handle = std.io.bufferedWriter(std.io.getStdOut().writer());
-    const stdout: BufferedFileWriter = stdout_buf_handle.writer();
-
-    var stderr_buf_handle = std.io.bufferedWriter(std.io.getStdErr().writer());
-    const stderr: BufferedFileWriter = stderr_buf_handle.writer();
+    var stdout_file = std.fs.File.stdout().writer(&stdout_buf);
+    var stdout = &stdout_file.interface;
+    var stderr_file = std.fs.File.stderr().writer(&stderr_buf);
+    var stderr = &stderr_file.interface;
 
     // don't forget to flush)
-    defer (stdout.context.flush() catch {});
-    defer (stderr.context.flush() catch {});
+    defer (stdout.flush() catch {});
+    defer (stderr.flush() catch {});
 
     if (std.os.argv.len < 2)
     {
         try stdout.print("Too little command line arguments\n\n", .{});
 
-        try printHelp(&stdout);
+        try printHelp(stdout);
         return;
     }
 
     const operand = if (std.os.argv.len > 2) std.os.argv[2] else null;
 
-    doOperations(std.os.argv[1], operand, &stdout, &stderr) catch |err| {
+    doOperations(std.os.argv[1], operand, stdout, stderr) catch |err| {
         try processAccessDenied(stdout, err);
     };
 }

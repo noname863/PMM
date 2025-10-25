@@ -1,19 +1,19 @@
 const std = @import("std");
 const arena = @import("../utils/simple_arena.zig");
-const BufferedFileWriter = @import("../utils/buffered_writer.zig").BufferedFileWriter;
+
 
 const parsePackages = @import("parse_packages.zig").parsePackages;
 const attachedProcess = @import("attached_process.zig");
 const runAttachedProcess = attachedProcess.runAttachedProcess;
 const stringCompare = @import("../utils/string_compare.zig").stringCompare;
 
-const AttachedCmdFunction = fn(*const BufferedFileWriter) anyerror!bool;
-const AttachedCmdWithArgs = fn(*const BufferedFileWriter, []const []const u8) anyerror!bool;
+const AttachedCmdFunction = fn(*std.Io.Writer) anyerror!bool;
+const AttachedCmdWithArgs = fn(*std.Io.Writer, []const []const u8) anyerror!bool;
 
 fn attachedCmdFunc(comptime args: anytype, comptime op_name: []const u8) AttachedCmdFunction
 {
     const Res = struct {
-        fn func(stderr: *const BufferedFileWriter) !bool
+        fn func(stderr: *std.Io.Writer) !bool
         {
             return try runAttachedProcess(stderr, &args, op_name);
         }
@@ -25,7 +25,7 @@ fn attachedCmdFunc(comptime args: anytype, comptime op_name: []const u8) Attache
 fn attachedCmdWithArgs(comptime args: anytype, comptime op_name: []const u8) AttachedCmdWithArgs
 {
     const Res = struct {
-        fn func(stderr: *const BufferedFileWriter, additional_args: []const []const u8) !bool
+        fn func(stderr: *std.Io.Writer, additional_args: []const []const u8) !bool
         {
             if (additional_args.len == 0)
             {
@@ -43,16 +43,16 @@ fn attachedCmdWithArgs(comptime args: anytype, comptime op_name: []const u8) Att
     return Res.func;
 }
 
-const GetCmdFunction = fn(*const BufferedFileWriter) anyerror!?[][]const u8;
+const GetCmdFunction = fn(*std.Io.Writer) anyerror!?[][]const u8;
 
 fn getCmdFunction(comptime args: anytype, comptime op_name: []const u8) GetCmdFunction
 {
     const Res = struct
     {
-        fn func(stderr: *const BufferedFileWriter) !?[][]const u8{
+        fn func(stderr: *std.Io.Writer) !?[][]const u8{
             const allocator = arena.instance.allocator();
 
-            var packages = std.ArrayList([]const u8).init(allocator);
+            var packages = std.ArrayList([]const u8){};
 
             const result = try std.process.Child.run(.{
                 .allocator = allocator,
@@ -101,7 +101,7 @@ pub const PackageManager = struct
 
         inline for (args) |arg|
         {
-            if (@TypeOf(arg.@"0") == arg.@"4")
+            if (@TypeOf(arg.@"0") == arg.@"4" or @TypeOf(arg.@"0") == *const arg.@"4")
             {
                 @field(res, arg.@"1") = arg.@"0";
             }
@@ -115,36 +115,55 @@ pub const PackageManager = struct
     }
 };
 
-fn pacmanRemoveExcessive(stderr: *const BufferedFileWriter) anyerror!bool
+fn removeExcessiveFn(comptime pacman_like_pm: []const u8) *const fn(*std.Io.Writer) anyerror!bool
 {
-    const pacman_find_orphans = [_][]const u8{"pacman", "-Qdtq"};
-
-    const allocator = arena.instance.allocator();
-    var packages = std.ArrayList([]const u8).init(allocator);
-
-    const result = try std.process.Child.run(.{
-        .allocator = allocator,
-        .argv = &pacman_find_orphans,
-    });
-
-    if (!try attachedProcess.checkProcessFailure(stderr, "Get Unused Packages", result.term))
+    const ResType = struct
     {
-        try stderr.print("Error: pacman -Qdtq, which is supposed to return all unused packages failed. returning early \n", .{});
-        return false;
-    }
+        fn pacmanRemoveExcessive(stderr: *std.Io.Writer) anyerror!bool
+        {
+            const pacman_find_orphans = [_][]const u8{pacman_like_pm, "-Qdtq"};
 
-    try packages.appendSlice(&[_][]const u8{"pacman", "-Rcns"});
-    try parsePackages(&packages, result.stdout);
+            const allocator = arena.instance.allocator();
 
-    if (packages.items.len == 2)
-    {
-        return true;
-    }
-    else
-    {
-        return try runAttachedProcess(stderr, packages.items, "Remove excessive");
-    }
+            const result = try std.process.Child.run(.{
+                .allocator = allocator,
+                .argv = &pacman_find_orphans,
+            });
+
+            if (switch (result.term)
+                {
+                    .Exited => |code| (code != 0) and (code != 1 or result.stdout.len != 0),
+                    else => true,
+                })
+            {
+                try stderr.print("Error: {s} -Qdtq, which is supposed to return " ++
+                    "all unused packages failed. returning early \n", .{pacman_like_pm});
+                return false;
+            }
+
+            if (result.stdout.len == 0)
+            {
+                return true;
+            }
+
+            var packages = std.ArrayList([]const u8){};
+            try packages.appendSlice(arena.allocator, &[_][]const u8{"pacman", "-Rcns"});
+            try parsePackages(&packages, result.stdout);
+
+            if (packages.items.len == 2)
+            {
+                return true;
+            }
+            else
+            {
+                return try runAttachedProcess(stderr, packages.items, "Remove excessive");
+            }
+        }
+    };
+
+    return ResType.pacmanRemoveExcessive;
 }
+
 
 pub const package_managers = [_]PackageManager{
     PackageManager.init(
@@ -156,10 +175,17 @@ pub const package_managers = [_]PackageManager{
     ),
     PackageManager.init(
         "pacman",
-        [_][]const u8{"pacman", "-Qe"},
-        pacmanRemoveExcessive,
+        [_][]const u8{"pacman", "-Qeq"},
+        removeExcessiveFn("pacman"),
         [_][]const u8{"pacman", "-Rcns"},
         [_][]const u8{"pacman", "-Suy"}
+    ),
+    PackageManager.init(
+        "paru",
+        [_][]const u8{"paru", "-Qeq"},
+        removeExcessiveFn("paru"),
+        [_][]const u8{"paru", "-Rcns"},
+        [_][]const u8{"paru", "-Suy"}
     )
 };
 

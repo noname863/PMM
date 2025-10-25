@@ -1,11 +1,11 @@
 const std = @import("std");
 
-const BufferedFileWriter = @import("../../utils/buffered_writer.zig").BufferedFileWriter;
+
 const DirKind = std.fs.Dir.Entry.Kind;
 
 pub const Context = struct
 {
-    stderr: *const BufferedFileWriter
+    stderr: *std.Io.Writer
 };
 
 pub fn same(context: Context, config_dir: std.fs.Dir, deploy_dir: std.fs.Dir, file: std.fs.Dir.Entry, stat: std.fs.Dir.Stat) !void
@@ -37,7 +37,7 @@ pub fn notExists(context: Context,
     try context.stderr.print("Warning: file which should correspond to the {s} wasn't found\n", .{package_path_slice});
 }
 
-pub fn createContext(_: *const BufferedFileWriter, stderr: *const BufferedFileWriter) Context
+pub fn createContext(_: *std.Io.Writer, stderr: *std.Io.Writer) Context
 {
     return .{
         .stderr = stderr
